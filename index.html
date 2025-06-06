@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Solwed Reverb</title>
+    <style>
+        /* CHANGE: Updated to a darker "more black" theme */
+        :root {
+            --background-color: #000000;
+            --primary-text-color: #e0e0e0;
+            --secondary-text-color: #888;
+            --border-color: #222;
+            --accent-color: #007bff;
+            --accent-hover-color: #0056b3;
+            --control-bg-color: #111;
+            --disabled-color: #444;
+            --font-family: 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--primary-text-color);
+            font-family: var(--font-family);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            line-height: 1.6;
+            overflow: hidden; /* Prevent scrollbars during animation */
+        }
+        
+        /* CHANGE: Keyframe for entry animation */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        main {
+            width: 100%;
+            max-width: 480px;
+            background-color: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            /* CHANGE: Apply entry animation */
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* CHANGE: Classes for smooth fade transitions */
+        .view {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        .fading-out {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.98);
+        }
+
+        /* --- Uploader Section --- */
+        #uploader {
+            text-align: center;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        #file-label {
+            display: block;
+            padding: 3rem 1rem;
+            border: 2px dashed var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        #file-label:hover {
+            background-color: var(--control-bg-color);
+            border-color: var(--accent-color);
+        }
+        
+        #file-label-text {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        #file-label-subtext {
+            font-size: 0.8rem;
+            color: var(--secondary-text-color);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+
+        /* --- Player & Controls Section --- */
+        #file-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--control-bg-color);
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        #file-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 0.9rem;
+            padding-right: 1rem;
+        }
+
+        #remove-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--secondary-text-color);
+            padding: 0.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: color 0.2s, background-color 0.2s;
+        }
+        #remove-btn:hover {
+            color: var(--primary-text-color);
+            background-color: #333;
+        }
+
+        #player-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #time-display {
+            font-size: 0.8rem;
+            color: var(--secondary-text-color);
+            width: 100%;
+            text-align: right;
+            margin-top: 0.25rem;
+        }
+        
+        #play-pause-btn {
+            background-color: var(--accent-color);
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: white;
+            margin: 1rem 0 2rem 0;
+            /* CHANGE: Added transform for smoother hover effect */
+            transition: background-color 0.2s, transform 0.2s ease-out;
+        }
+        #play-pause-btn:hover {
+            background-color: var(--accent-hover-color);
+            /* CHANGE: Added scale effect */
+            transform: scale(1.08);
+        }
+        #play-pause-icon {
+            width: 32px;
+            height: 32px;
+        }
+
+        .controls-group {
+            width: 100%;
+            margin-bottom: 2rem;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        
+        .control-row label {
+            font-size: 0.9rem;
+            color: var(--secondary-text-color);
+        }
+
+        .control-row .value-display {
+            font-size: 0.9rem;
+            min-width: 40px;
+            text-align: right;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%;
+            height: 4px;
+            background: var(--border-color);
+            outline: none;
+            border-radius: 2px;
+            margin: 0.5rem 0;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--primary-text-color);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--primary-text-color);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        input[type="range"]:hover::-webkit-slider-thumb { background-color: var(--accent-color); transform: scale(1.2); }
+        input[type="range"]:hover::-moz-range-thumb { background-color: var(--accent-color); transform: scale(1.2); }
+        
+        #download-btn {
+            width: 100%;
+            background-color: var(--control-bg-color);
+            color: var(--primary-text-color);
+            border: 1px solid var(--border-color);
+            padding: 0.85rem;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: var(--font-family);
+            transition: background-color 0.2s, border-color 0.2s;
+            text-align: center;
+        }
+        #download-btn:hover:not(:disabled) {
+            background-color: var(--border-color);
+            border-color: var(--primary-text-color);
+        }
+        #download-btn:disabled {
+            background-color: var(--control-bg-color);
+            color: var(--disabled-color);
+            border-color: #222;
+            cursor: not-allowed;
+        }
+
+        #status {
+            text-align: center;
+            margin-top: 1rem;
+            color: var(--accent-color);
+            font-size: 0.8rem;
+            height: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <main>
+        <!-- CHANGE: Added .view class for animations -->
+        <div id="uploader" class="view">
+            <h1>Pro Solwed Reverb</h1>
+            <input type="file" id="file-input" accept="audio/*">
+            <label for="file-input" id="file-label">
+                <div id="file-label-text">Drop Audio File Here</div>
+                <div id="file-label-subtext">or click to browse</div>
+            </label>
+        </div>
+
+        <!-- CHANGE: Added .view class and made it hidden by default -->
+        <div id="player-wrapper" class="view hidden fading-out">
+            <div id="file-info">
+                <span id="file-name"></span>
+                <button id="remove-btn" aria-label="Remove music">
+                    <svg viewBox="0 0 32 32" width="20" height="20" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                        <line x1="8" y1="8" x2="24" y2="24" />
+                        <line x1="24" y1="8" x2="8" y2="24" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="player-controls">
+                <input type="range" id="progress-bar" min="0" max="100" value="0">
+                <div id="time-display">00:00 / 00:00</div>
+                <button class="action-button" id="play-pause-btn" aria-label="Play">
+                    <svg id="play-pause-icon" viewBox="0 0 32 32" fill="currentColor">
+                        <!-- Path dynamically inserted by JS -->
+                    </svg>
+                </button>
+            </div>
+
+            <div class="controls-group">
+                <!-- CHANGE: Simplified back to a single Reverb slider -->
+                <div class="control-row">
+                    <label for="reverb-slider">Reverb</label>
+                    <span id="reverb-value" class="value-display">50%</span>
+                </div>
+                <input type="range" id="reverb-slider" min="0" max="1" step="0.01" value="0.5">
+
+                <div class="control-row">
+                    <label for="speed-slider">Speed</label>
+                    <span id="speed-value" class="value-display">1.00x</span>
+                </div>
+                <input type="range" id="speed-slider" min="0.5" max="1.5" step="0.01" value="1">
+            </div>
+
+            <button id="download-btn" disabled>Download Edited Music</button>
+            <div id="status"></div>
+        </div>
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- SVG Icon Paths ---
+        const ICONS = {
+            PLAY: 'M10 8 L22 16 L10 24 Z',
+            PAUSE: 'M9 8 H13 V24 H9 Z M19 8 H23 V24 H19 Z'
+        };
+
+        // --- DOM Elements ---
+        const uploader = document.getElementById('uploader');
+        const fileInput = document.getElementById('file-input');
+        const playerWrapper = document.getElementById('player-wrapper');
+        const fileNameDisplay = document.getElementById('file-name');
+        const timeDisplay = document.getElementById('time-display');
+        const progressBar = document.getElementById('progress-bar');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playPauseIcon = document.getElementById('play-pause-icon');
+        const reverbSlider = document.getElementById('reverb-slider');
+        const reverbValueDisplay = document.getElementById('reverb-value');
+        const speedSlider = document.getElementById('speed-slider');
+        const speedValueDisplay = document.getElementById('speed-value');
+        const removeBtn = document.getElementById('remove-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const statusDisplay = document.getElementById('status');
+        
+        // --- Web Audio API & State ---
+        let audioContext;
+        let sourceNode;
+        let audioBuffer;
+        let convolverNode;
+        let dryGainNode, wetGainNode;
+        let isPlaying = false;
+        let playStartTime = 0;
+        let startOffset = 0;
+        let animationFrameId;
+        let originalFileName = '';
+        let impulseResponseBuffer; // Cache for the generated reverb
+
+        // --- Initial Setup ---
+        updatePlayPauseIcon(false);
+        handleReverbChange();
+
+        // --- Event Listeners ---
+        fileInput.addEventListener('change', handleFileSelect);
+        playPauseBtn.addEventListener('click', togglePlayPause);
+        reverbSlider.addEventListener('input', handleReverbChange);
+        speedSlider.addEventListener('input', handleSpeedChange);
+        progressBar.addEventListener('input', handleSeek);
+        removeBtn.addEventListener('click', resetApp);
+        downloadBtn.addEventListener('click', handleDownload);
+
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            await resetApp();
+            originalFileName = file.name;
+            fileNameDisplay.textContent = originalFileName;
+            statusDisplay.textContent = 'Decoding audio...';
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                initAudioContext();
+                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                setupAudioGraph();
+                updateUIForFileLoaded();
+                statusDisplay.textContent = '';
+            } catch (e) {
+                statusDisplay.textContent = 'Error: Could not decode audio file.';
+                console.error('Audio decoding error:', e);
+                resetApp();
+            }
+        }
+        
+        // CHANGE: This is the new, "beautiful" reverb generation function.
+        function createVividReverb() {
+            if (impulseResponseBuffer) return impulseResponseBuffer; // Use cached version if available
+            initAudioContext();
+
+            // --- Reverb Parameters ---
+            const duration = 6.0;        // Total length of the reverb tail
+            const leftDecay = 2.2;       // Decay rate for the left channel
+            const rightDecay = 2.5;      // Slightly different decay for the right for stereo width
+            const fadeInDuration = 0.05; // 50ms gentle fade-in for a "bloom" effect
+
+            const sampleRate = audioContext.sampleRate;
+            const length = sampleRate * duration;
+            const impulse = audioContext.createBuffer(2, length, sampleRate);
+            const impulseL = impulse.getChannelData(0);
+            const impulseR = impulse.getChannelData(1);
+            const fadeInSamples = sampleRate * fadeInDuration;
+
+            for (let i = 0; i < length; i++) {
+                // Generate random noise for the base of the reverb
+                const noiseL = (Math.random() * 2 - 1);
+                const noiseR = (Math.random() * 2 - 1);
+                
+                // Calculate the decay envelope for each channel
+                const envelopeL = Math.pow(1 - i / length, leftDecay);
+                const envelopeR = Math.pow(1 - i / length, rightDecay);
+
+                // Apply the decay to the noise
+                let valueL = noiseL * envelopeL;
+                let valueR = noiseR * envelopeR;
+
+                // Apply the short fade-in "bloom" at the start
+                if (i < fadeInSamples) {
+                    const fadeInMultiplier = i / fadeInSamples;
+                    valueL *= fadeInMultiplier;
+                    valueR *= fadeInMultiplier;
+                }
+
+                impulseL[i] = valueL;
+                impulseR[i] = valueR;
+            }
+
+            impulseResponseBuffer = impulse; // Cache the result
+            return impulse;
+        }
+
+        function setupAudioGraph() {
+            convolverNode = audioContext.createConvolver();
+            dryGainNode = audioContext.createGain();
+            wetGainNode = audioContext.createGain();
+            
+            // CHANGE: Call the new, superior reverb function
+            convolverNode.buffer = createVividReverb(); 
+
+            handleReverbChange();
+            dryGainNode.connect(audioContext.destination);
+            convolverNode.connect(wetGainNode);
+            wetGainNode.connect(audioContext.destination);
+        }
+
+        function play() {
+            if (isPlaying) return;
+            if (audioContext.state === 'suspended') audioContext.resume();
+            
+            sourceNode = audioContext.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+            sourceNode.playbackRate.value = parseFloat(speedSlider.value);
+            sourceNode.connect(dryGainNode);
+            sourceNode.connect(convolverNode);
+
+            sourceNode.onended = () => {
+                if (!isPlaying) return;
+                const playbackRate = sourceNode.playbackRate.value;
+                const totalDurationAtSpeed = audioBuffer.duration / playbackRate;
+                const currentTime = startOffset + (audioContext.currentTime - playStartTime);
+
+                if (currentTime >= totalDurationAtSpeed - 0.01) {
+                    startOffset = 0;
+                    isPlaying = false;
+                    updatePlayPauseIcon(false);
+                    updateProgress();
+                    cancelAnimationFrame(animationFrameId);
+                }
+            };
+            
+            sourceNode.start(0, startOffset);
+            playStartTime = audioContext.currentTime;
+            isPlaying = true;
+            updateProgress();
+        }
+
+        function pause() {
+            if (!isPlaying || !sourceNode) return;
+            const playbackRate = sourceNode.playbackRate.value;
+            const elapsed = (audioContext.currentTime - playStartTime) * playbackRate;
+            startOffset += elapsed;
+            sourceNode.stop(0);
+            sourceNode = null; 
+            isPlaying = false;
+            cancelAnimationFrame(animationFrameId);
+        }
+
+        function togglePlayPause() {
+            if (!audioBuffer) return;
+            if (isPlaying) pause();
+            else play();
+            updatePlayPauseIcon(isPlaying);
+        }
+
+        function handleReverbChange() {
+            const mix = parseFloat(reverbSlider.value);
+            reverbValueDisplay.textContent = `${Math.round(mix * 100)}%`;
+            if (dryGainNode && wetGainNode) {
+                dryGainNode.gain.setTargetAtTime(1 - mix, audioContext.currentTime, 0.01);
+                wetGainNode.gain.setTargetAtTime(mix, audioContext.currentTime, 0.01);
+            }
+        }
+
+        function handleSpeedChange() {
+            const speed = parseFloat(speedSlider.value);
+            speedValueDisplay.textContent = `${speed.toFixed(2)}x`;
+            if (isPlaying) {
+                pause();
+                play();
+            }
+        }
+        
+        function handleSeek() {
+            if (!audioBuffer) return;
+            const wasPlaying = isPlaying;
+            if (wasPlaying) pause();
+            startOffset = (progressBar.value / 100) * audioBuffer.duration;
+            updateTimeDisplay();
+            if (wasPlaying) play();
+        }
+
+        function updateProgress() {
+            let currentTime = isPlaying 
+                ? startOffset + (audioContext.currentTime - playStartTime) * sourceNode.playbackRate.value
+                : startOffset;
+            currentTime = Math.min(currentTime, audioBuffer.duration);
+            progressBar.value = (currentTime / audioBuffer.duration) * 100;
+            updateTimeDisplay(currentTime);
+            if (isPlaying) animationFrameId = requestAnimationFrame(updateProgress);
+        }
+        
+        function formatTime(seconds) {
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        }
+
+        function updateTimeDisplay(currentTime = startOffset) {
+             if (!audioBuffer) return;
+             timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(audioBuffer.duration)}`;
+        }
+        
+        function updatePlayPauseIcon(playing) {
+            playPauseIcon.innerHTML = `<path d="${playing ? ICONS.PAUSE : ICONS.PLAY}"></path>`;
+            playPauseBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+        }
+
+        function updateUIForFileLoaded() {
+            playerWrapper.classList.remove('hidden');
+            setTimeout(() => {
+                uploader.classList.add('fading-out');
+                playerWrapper.classList.remove('fading-out');
+            }, 10);
+            setTimeout(() => uploader.classList.add('hidden'), 310);
+            downloadBtn.disabled = false;
+            progressBar.value = 0;
+            updateTimeDisplay(0);
+        }
+
+        async function resetApp() {
+            if (isPlaying) {
+               pause();
+               updatePlayPauseIcon(false);
+            }
+            if (audioContext && audioContext.state !== 'closed') await audioContext.suspend();
+
+            uploader.classList.remove('hidden');
+            setTimeout(() => {
+                playerWrapper.classList.add('fading-out');
+                uploader.classList.remove('fading-out');
+            }, 10);
+            setTimeout(() => playerWrapper.classList.add('hidden'), 310);
+
+            audioBuffer = null;
+            sourceNode = null;
+            isPlaying = false;
+            startOffset = 0;
+            playStartTime = 0;
+            cancelAnimationFrame(animationFrameId);
+            
+            downloadBtn.disabled = true;
+            fileInput.value = '';
+            statusDisplay.textContent = '';
+            progressBar.value = 0;
+            timeDisplay.textContent = '00:00 / 00:00';
+        }
+
+        async function handleDownload() {
+            if (!audioBuffer) return;
+            statusDisplay.textContent = 'Processing... this may take a moment.';
+            downloadBtn.disabled = true;
+            removeBtn.disabled = true;
+
+            const speed = parseFloat(speedSlider.value);
+            const offlineContext = new OfflineAudioContext(audioBuffer.numberOfChannels, (audioBuffer.length / speed), audioBuffer.sampleRate);
+
+            const offlineSource = offlineContext.createBufferSource();
+            offlineSource.buffer = audioBuffer;
+            offlineSource.playbackRate.value = speed;
+            const offlineConvolver = offlineContext.createConvolver();
+            // CHANGE: Use the same beautiful reverb for the download
+            offlineConvolver.buffer = createVividReverb();
+            const offlineDryGain = offlineContext.createGain();
+            const offlineWetGain = offlineContext.createGain();
+            const mix = parseFloat(reverbSlider.value);
+            offlineDryGain.gain.value = 1 - mix;
+            offlineWetGain.gain.value = mix;
+
+            offlineSource.connect(offlineDryGain);
+            offlineSource.connect(offlineConvolver);
+            offlineConvolver.connect(offlineWetGain);
+            offlineDryGain.connect(offlineContext.destination);
+            offlineWetGain.connect(offlineContext.destination);
+            offlineSource.start(0);
+
+            try {
+                const renderedBuffer = await offlineContext.startRendering();
+                const wav = bufferToWav(renderedBuffer);
+                const blob = new Blob([wav], { type: 'audio/wav' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                const cleanName = originalFileName.substring(0, originalFileName.lastIndexOf('.')) || originalFileName;
+                a.download = `${cleanName}-reverb.wav`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                statusDisplay.textContent = 'Download ready!';
+                setTimeout(() => statusDisplay.textContent = '', 3000);
+            } catch(e) {
+                statusDisplay.textContent = 'Error during processing.';
+                console.error('Offline rendering failed:', e);
+            } finally {
+                downloadBtn.disabled = false;
+                removeBtn.disabled = false;
+            }
+        }
+        
+        function bufferToWav(buffer) {
+            const numOfChan = buffer.numberOfChannels, length = buffer.length * numOfChan * 2 + 44;
+            const bufferOut = new ArrayBuffer(length), view = new DataView(bufferOut);
+            const channels = []; let i, sample, offset = 0, pos = 0;
+            setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
+            setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+            setUint32(buffer.sampleRate); setUint32(buffer.sampleRate * 2 * numOfChan);
+            setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164);
+            setUint32(length - pos - 4);
+            for (i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
+            while (pos < length) {
+                for (i = 0; i < numOfChan; i++) {
+                    sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+                    view.setInt16(pos, sample, true); pos += 2;
+                }
+                if(offset < buffer.length) offset++; else pos = length;
+            }
+            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+            function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+            return bufferOut;
+        }
+    });
+</script>
+</body>
+</html>
