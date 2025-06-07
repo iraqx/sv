@@ -3,410 +3,470 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro Solwed Reverb - Stable</title>
-    <!-- 1. تحميل مكتبة Tone.js -->
+    <title>Pro Solwed Reverb - Performance Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+    <!-- lame.min.js is now loaded inside the Web Worker -->
     <style>
         :root {
             --background-color: #000000;
             --primary-text-color: #e0e0e0;
-            --secondary-text-color: #888;
-            --border-color: #222;
-            --accent-color: #007bff;
-            --accent-hover-color: #0056b3;
-            --control-bg-color: #111;
-            --disabled-color: #444;
-            --font-family: 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
+            --secondary-text-color: #7d7d7d;
+            --border-color: #2a2a2a;
+            --accent-color: #00A9FF;
+            --success-color: #1ED760;
+            --font-family: 'JetBrains Mono', monospace;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        html { font-size: 16px; }
+        html, body {
+            height: 100%;
+            /* --- FIX: Disable Pull-to-Refresh --- */
+            overscroll-behavior-y: contain;
+        }
         body {
-            background-color: var(--background-color); color: var(--primary-text-color); font-family: var(--font-family);
-            display: flex; justify-content: center; align-items: center; padding: 1rem; line-height: 1.6; overflow: hidden;
+            background-color: var(--background-color);
+            color: var(--primary-text-color);
+            font-family: var(--font-family);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+
+        .studio-container {
+            width: 100%;
+            max-width: 800px;
+            background-color: transparent;
+            border: 2px dashed var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            transition: border-color 0.6s ease-in-out;
         }
-        main {
-            width: 100%; max-width: 480px; background-color: var(--background-color); border: 1px solid var(--border-color);
-            border-radius: 8px; padding: 2rem; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); animation: fadeInUp 0.6s ease-out;
+
+        .file-drop-zone {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            padding: 4rem 2rem;
+            opacity: 1;
+            max-height: 500px;
+            transition: max-height 0.6s ease-in-out, opacity 0.4s ease-in-out, padding 0.6s ease-in-out;
         }
-        .hidden { display: none !important; }
-        .view { transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; }
-        .fading-out { opacity: 0; pointer-events: none; transform: scale(0.98); }
-        #uploader { text-align: center; }
         #file-input { display: none; }
-        #file-label {
-            display: block; padding: 3rem 1rem; border: 2px dashed var(--border-color);
-            border-radius: 6px; cursor: pointer; transition: background-color 0.2s, border-color 0.2s;
+        .uploader-icon { margin-bottom: 1.5rem; color: var(--secondary-text-color); }
+        .uploader-text { font-size: 1.25rem; font-weight: 500; }
+        .uploader-subtext { font-size: 0.9rem; color: var(--secondary-text-color); margin-top: 0.5rem; }
+
+        .controls-wrapper {
+            opacity: 0;
+            max-height: 0;
+            visibility: hidden;
+            padding: 0 2.5rem;
+            transform: translateY(15px);
+            transition: max-height 0.6s ease-in-out, opacity 0.4s ease-in-out, padding 0.6s ease-in-out, transform 0.5s ease-in-out, visibility 0s 0.6s;
         }
-        #file-label:hover { background-color: var(--control-bg-color); border-color: var(--accent-color); }
-        #file-label-text { font-size: 1rem; margin-bottom: 0.5rem; }
-        #file-label-subtext { font-size: 0.8rem; color: var(--secondary-text-color); }
-        h1 { text-align: center; font-size: 1.5rem; margin-bottom: 2rem; letter-spacing: 1px; font-weight: 500; }
-        #file-info {
-            display: flex; align-items: center; justify-content: space-between;
-            background-color: var(--control-bg-color); padding: 0.75rem 1rem;
-            border-radius: 4px; margin-bottom: 1.5rem; border: 1px solid var(--border-color);
+
+        .studio-container.is-loaded .file-drop-zone {
+            max-height: 0;
+            opacity: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            visibility: hidden;
         }
-        #file-name {
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            font-size: 0.9rem; padding-right: 1rem;
+        .studio-container.is-loaded .controls-wrapper {
+            max-height: 1000px;
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            padding: 2.5rem;
         }
-        #remove-btn {
-            background: none; border: none; cursor: pointer; color: var(--secondary-text-color);
-            padding: 0.25rem; display: flex; align-items: center; justify-content: center;
-            border-radius: 50%; transition: color 0.2s, background-color 0.2s;
-        }
-        #remove-btn:hover { color: var(--primary-text-color); background-color: #333; }
-        #player-controls { display: flex; flex-direction: column; align-items: center; }
-        #time-display { font-size: 0.8rem; color: var(--secondary-text-color); width: 100%; text-align: right; margin-top: 0.25rem; }
-        #play-pause-btn {
-            background-color: var(--accent-color); border: none; width: 60px; height: 60px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; cursor: pointer;
-            color: white; margin: 1rem 0 2rem 0; transition: background-color 0.2s, transform 0.2s ease-out;
-        }
-        #play-pause-btn:hover { background-color: var(--accent-hover-color); transform: scale(1.08); }
-        #play-pause-icon { width: 32px; height: 32px; }
-        .controls-group { width: 100%; margin-bottom: 2rem; }
-        .control-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
-        .control-row label { font-size: 0.9rem; color: var(--secondary-text-color); }
-        .control-row .value-display { font-size: 0.9rem; min-width: 40px; text-align: right; }
+
+        .control-group { margin-bottom: 2.5rem; }
+        .control-group:last-child { margin-bottom: 0; }
+
+        .file-info-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+        .file-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 1.1rem; padding-right: 1rem; }
+        .remove-btn { background: none; border: none; cursor: pointer; color: var(--secondary-text-color); padding: 0.5rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: color 0.2s, background-color 0.2s; }
+        .remove-btn:hover { color: var(--primary-text-color); background-color: #333; }
+
+        .progress-container { width: 100%; margin-bottom: 1.5rem; }
+        .play-pause-wrapper { display: flex; justify-content: center; width: 100%; }
+        .play-pause-btn { background-color: var(--accent-color); border: none; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: background-color 0.2s, transform 0.2s ease-out; box-shadow: 0 4px 15px rgba(0, 169, 255, 0.3); }
+        .play-pause-btn:hover { transform: scale(1.08); }
+        .play-pause-icon { width: 30px; height: 30px; }
+
+        .time-display { font-size: 0.85rem; color: var(--secondary-text-color); text-align: right; margin-top: 0.5rem; }
+
+        .slider-label { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; font-size: 1rem; font-weight: 500; }
+        .value-display { font-size: 0.9rem; color: var(--secondary-text-color); }
+
         input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: var(--border-color); outline: none; border-radius: 2px; margin: 0.5rem 0; cursor: pointer; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; background: var(--primary-text-color); border-radius: 50%; cursor: pointer; transition: background-color 0.2s, transform 0.2s; }
         input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; background: var(--primary-text-color); border-radius: 50%; cursor: pointer; border: none; transition: background-color 0.2s, transform 0.2s; }
         input[type="range"]:hover::-webkit-slider-thumb { background-color: var(--accent-color); transform: scale(1.2); }
         input[type="range"]:hover::-moz-range-thumb { background-color: var(--accent-color); transform: scale(1.2); }
-        #download-btn { width: 100%; background-color: var(--control-bg-color); color: var(--primary-text-color); border: 1px solid var(--border-color); padding: 0.85rem; font-size: 0.9rem; border-radius: 4px; cursor: pointer; font-family: var(--font-family); transition: background-color 0.2s, border-color 0.2s; text-align: center; }
-        #download-btn:hover:not(:disabled) { background-color: var(--border-color); border-color: var(--primary-text-color); }
-        #download-btn:disabled { background-color: var(--control-bg-color); color: var(--disabled-color); border-color: #222; cursor: not-allowed; }
-        #status { text-align: center; margin-top: 1rem; color: var(--accent-color); font-size: 0.8rem; height: 1.2rem; }
+
+        .download-wrapper { text-align: center; padding-top: 1rem; }
+        .download-btn { height: 48px; text-align: center; width: 100%; max-width: 250px; border-radius: 48px; background: transparent; border: 2px solid var(--success-color); color: var(--success-color); letter-spacing: 1px; font-size: 1rem; font-weight: 500; font-family: var(--font-family); cursor: pointer; transition: all 0.3s ease; position: relative; }
+        .download-btn:hover:not(:disabled) { color: #000; background: var(--success-color); }
+        .download-btn:disabled:not(.onclic):not(.validate) { color: #444; border-color: #444; cursor: not-allowed; }
+        .download-btn::after { content: attr(data-text); }
+        .download-btn.onclic { width: 48px; border-color: var(--border-color); border-width: 3px; font-size: 0; border-left-color: var(--success-color); animation: rotating 1.5s linear infinite; }
+        .download-btn.onclic::after { content: ""; }
+        .download-btn.onclic:hover { background: transparent; }
+        .download-btn.validate { font-size: 20px; color: #000; background: var(--success-color); border-color: var(--success-color); }
+        .download--btn.validate::after { content: "✓"; }
+        
+        @keyframes rotating { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <main>
-        <div id="uploader" class="view">
-            <h1>Pro Solwed Reverb</h1>
-            <input type="file" id="file-input" accept="audio/*">
-            <label for="file-input" id="file-label">
-                <div id="file-label-text">Drop Audio File Here</div>
-                <div id="file-label-subtext">or click to browse</div>
-            </label>
-        </div>
-
-        <div id="player-wrapper" class="view hidden fading-out">
-            <div id="file-info">
-                <span id="file-name"></span>
-                <button id="remove-btn" aria-label="Remove music">
-                    <svg viewBox="0 0 32 32" width="20" height="20" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-                        <line x1="8" y1="8" x2="24" y2="24" /><line x1="24" y1="8" x2="8" y2="24" />
-                    </svg>
-                </button>
+    <div class="studio-container" id="studio-container">
+        <label for="file-input" class="file-drop-zone">
+            <div class="uploader-icon">
+                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle>
+                </svg>
             </div>
-            
-            <div id="player-controls">
-                <input type="range" id="progress-bar" min="0" max="100" value="0">
-                <div id="time-display">00:00 / 00:00</div>
-                <button class="action-button" id="play-pause-btn" aria-label="Play">
-                    <svg id="play-pause-icon" viewBox="0 0 32 32" fill="currentColor"></svg>
-                </button>
-            </div>
+            <div class="uploader-text">Drop Audio File</div>
+            <div class="uploader-subtext">or click to browse</div>
+        </label>
+        <input type="file" id="file-input" accept="audio/*">
 
-            <div class="controls-group">
-                <div class="control-row">
-                    <label for="reverb-slider">Reverb</label>
-                    <span id="reverb-value" class="value-display">50%</span>
+        <div class="controls-wrapper">
+            <div class="control-group">
+                <div class="file-info-header">
+                    <span class="file-name"></span>
+                    <button class="remove-btn" aria-label="Remove file">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
-                <input type="range" id="reverb-slider" min="0" max="1" step="0.01" value="0.5">
-
-                <div class="control-row">
-                    <label for="speed-slider">Speed</label>
-                    <span id="speed-value" class="value-display">1.00x</span>
+                <div class="progress-container">
+                    <input type="range" id="progress-bar" min="0" max="100" value="0">
+                    <div class="time-display">00:00 / 00:00</div>
                 </div>
-                <input type="range" id="speed-slider" min="0.5" max="1.5" step="0.01" value="1">
+                <div class="play-pause-wrapper">
+                    <button class="play-pause-btn" aria-label="Play">
+                        <svg class="play-pause-icon" viewBox="0 0 32 32" fill="currentColor"></svg>
+                    </button>
+                </div>
             </div>
-
-            <button id="download-btn" disabled>Download Edited Music</button>
-            <div id="status"></div>
+            <div class="control-group">
+                <div class="slider-label">
+                    <span>Reverb</span>
+                    <span class="value-display" id="reverb-value"></span>
+                </div>
+                <input type="range" id="reverb-slider" min="0" max="1" step="0.05" value="0.5">
+            </div>
+            <div class="control-group">
+                <div class="slider-label">
+                    <span>Speed</span>
+                    <span class="value-display" id="speed-value"></span>
+                </div>
+                <input type="range" id="speed-slider" min="0.5" max="1.5" step="0.05" value="1">
+            </div>
+            <div class="control-group">
+                <div class="download-wrapper">
+                    <button class="download-btn" id="download-btn" data-text="Download MP3" disabled></button>
+                </div>
+            </div>
         </div>
-    </main>
+    </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // --- SVG Icon Paths ---
-    const ICONS = {
-        PLAY: 'M10 8 L22 16 L10 24 Z',
-        PAUSE: 'M9 8 H13 V24 H9 Z M19 8 H23 V24 H19 Z'
-    };
-
     // --- DOM Elements ---
-    const uploader = document.getElementById('uploader');
+    const studioContainer = document.getElementById('studio-container');
     const fileInput = document.getElementById('file-input');
-    const playerWrapper = document.getElementById('player-wrapper');
-    const fileNameDisplay = document.getElementById('file-name');
-    const timeDisplay = document.getElementById('time-display');
+    const fileNameDisplay = document.querySelector('.file-name');
+    const timeDisplay = document.querySelector('.time-display');
     const progressBar = document.getElementById('progress-bar');
-    const playPauseBtn = document.getElementById('play-pause-btn');
-    const playPauseIcon = document.getElementById('play-pause-icon');
+    const playPauseBtn = document.querySelector('.play-pause-btn');
+    const playPauseIcon = document.querySelector('.play-pause-icon');
     const reverbSlider = document.getElementById('reverb-slider');
     const reverbValueDisplay = document.getElementById('reverb-value');
     const speedSlider = document.getElementById('speed-slider');
     const speedValueDisplay = document.getElementById('speed-value');
-    const removeBtn = document.getElementById('remove-btn');
+    const removeBtn = document.querySelector('.remove-btn');
     const downloadBtn = document.getElementById('download-btn');
-    const statusDisplay = document.getElementById('status');
     
-    // --- Tone.js & State ---
-    let player, reverb;
-    let isPlaying = false;
-    let playStartTime = 0; // Time from Tone.context.now()
-    let startOffset = 0;   // Position in seconds within the audio buffer
-    let animationFrameId;
-    let originalFileName = '';
-    
-    // --- Initial Setup ---
-    updatePlayPauseIcon(false);
-    handleReverbChange();
+    // --- State & Constants ---
+    const ICONS = { PLAY: 'M10 8 L22 16 L10 24 Z', PAUSE: 'M9 8 H13 V24 H9 Z M19 8 H23 V24 H19 Z' };
+    let audioBuffer, player, reverb, isPlaying = false, startOffset = 0, playStartTime = 0, animationFrameId, originalFileName = '';
+    let mp3EncoderWorker;
 
-    // --- Event Listeners ---
-    fileInput.addEventListener('change', handleFileSelect);
-    playPauseBtn.addEventListener('click', togglePlayPause);
-    reverbSlider.addEventListener('input', handleReverbChange);
-    speedSlider.addEventListener('input', handleSpeedChange);
-    progressBar.addEventListener('input', handleSeek);
-    removeBtn.addEventListener('click', resetApp);
-    downloadBtn.addEventListener('click', handleDownload);
+    // --- PERFORMANCE FIX: MP3 Encoding Web Worker ---
+    function setupEncoderWorker() {
+        const workerCode = `
+            self.importScripts('https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js');
 
-    async function handleFileSelect(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        await resetApp(); // Reset completely before loading new file
-        originalFileName = file.name;
-        fileNameDisplay.textContent = originalFileName;
-        statusDisplay.textContent = 'Decoding audio...';
-
-        try {
-            await Tone.start();
-            reverb = new Tone.Reverb({ decay: 4, preDelay: 0.01, wet: parseFloat(reverbSlider.value) }).toDestination();
-            
-            player = new Tone.Player({
-                url: URL.createObjectURL(file),
-                onload: () => {
-                    player.connect(reverb);
-                    updateUIForFileLoaded();
-                    statusDisplay.textContent = 'Ready.';
+            function floatTo16BitPCM(input) {
+                const output = new Int16Array(input.length);
+                for (let i = 0; i < input.length; i++) {
+                    const s = Math.max(-1, Math.min(1, input[i]));
+                    output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
                 }
-            });
-            
-        } catch (e) {
-            statusDisplay.textContent = 'Error: Could not decode audio file.';
-            console.error('Audio decoding error:', e);
-            await resetApp();
-        }
+                return output;
+            }
+
+            self.onmessage = function(e) {
+                const { audioData, config } = e.data;
+                const pcmLeft = floatTo16BitPCM(audioData.left);
+                const pcmRight = audioData.right ? floatTo16BitPCM(audioData.right) : pcmLeft;
+                
+                const encoder = new lamejs.Mp3Encoder(config.channels, config.sampleRate, config.bitrate);
+                const mp3Data = [];
+                const blockSize = 1152;
+
+                for (let i = 0; i < pcmLeft.length; i += blockSize) {
+                    const leftChunk = pcmLeft.subarray(i, i + blockSize);
+                    const rightChunk = pcmRight.subarray(i, i + blockSize);
+                    const mp3buf = encoder.encodeBuffer(leftChunk, rightChunk);
+                    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+                }
+                const mp3buf = encoder.flush();
+                if (mp3buf.length > 0) mp3Data.push(mp3buf);
+
+                self.postMessage(new Blob(mp3Data, { type: 'audio/mpeg' }));
+            };
+        `;
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        mp3EncoderWorker = new Worker(URL.createObjectURL(blob));
+    }
+    setupEncoderWorker();
+    // --- End of Web Worker Setup ---
+
+    const formatTime = (seconds) => {
+        const min = Math.floor(seconds / 60);
+        const sec = Math.floor(seconds % 60);
+        return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+    };
+
+    const updateTimeDisplay = (currentTime = 0) => {
+         const duration = audioBuffer ? audioBuffer.duration : 0;
+         timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+    };
+    
+    const updatePlayPauseIcon = (playing) => {
+        playPauseIcon.innerHTML = `<path d="${playing ? ICONS.PAUSE : ICONS.PLAY}"></path>`;
+        playPauseBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    };
+
+    function createPlayer() {
+        if (player) { player.stop(); player.dispose(); }
+        player = new Tone.Player(audioBuffer).connect(reverb);
+        player.loop = true;
+        player.playbackRate = parseFloat(speedSlider.value);
     }
 
-    // NEW STABLE PLAYBACK LOGIC
     function play() {
-        if (!player || !player.loaded || isPlaying) return;
-        
-        // Always create a new player instance for clean state, but reuse the buffer
-        const oldPlayer = player;
-        player = new Tone.Player(oldPlayer.buffer).connect(reverb);
-        player.playbackRate = oldPlayer.playbackRate;
-        oldPlayer.dispose();
-        
+        if (!audioBuffer || isPlaying) return;
+        createPlayer();
+        player.start(Tone.now(), startOffset);
         playStartTime = Tone.context.now();
-        player.start(0, startOffset);
         isPlaying = true;
         updatePlayPauseIcon(true);
-        updateProgress();
+        animationFrameId = requestAnimationFrame(updateProgress);
     }
 
     function pause() {
-        if (!player || !isPlaying) return;
+        if (!isPlaying || !player) return;
         const elapsed = (Tone.context.now() - playStartTime) * player.playbackRate;
-        startOffset += elapsed;
-        player.stop(); // Stop and dispose the current audio source
+        startOffset = (startOffset + elapsed) % audioBuffer.duration;
+        player.stop();
         isPlaying = false;
         updatePlayPauseIcon(false);
         cancelAnimationFrame(animationFrameId);
     }
     
-    function togglePlayPause() {
-        if (isPlaying) {
-            pause();
-        } else {
-            play();
-        }
-    }
+    const togglePlayPause = () => { isPlaying ? pause() : play(); };
 
     function handleReverbChange() {
         const mix = parseFloat(reverbSlider.value);
         reverbValueDisplay.textContent = `${Math.round(mix * 100)}%`;
-        if (reverb) {
-            reverb.wet.value = mix;
-        }
+        if (reverb) reverb.wet.value = mix;
     }
 
     function handleSpeedChange() {
         const speed = parseFloat(speedSlider.value);
         speedValueDisplay.textContent = `${speed.toFixed(2)}x`;
-        if (player) {
-            const wasPlaying = isPlaying;
-            if (wasPlaying) pause();
-            player.playbackRate = speed;
-            if (wasPlaying) play();
-        }
+        if (player) player.playbackRate = speed;
     }
     
     function handleSeek() {
-        if (!player || !player.loaded) return;
+        if (!audioBuffer) return;
         const wasPlaying = isPlaying;
         if (wasPlaying) pause();
-        
-        startOffset = (progressBar.value / 100) * player.buffer.duration;
-        updateTimeDisplay();
-        
+        startOffset = (progressBar.value / 100) * audioBuffer.duration;
+        updateTimeDisplay(startOffset);
         if (wasPlaying) play();
     }
 
     function updateProgress() {
-        if (!isPlaying || !player || !player.loaded) return;
-
-        const playbackRate = player.playbackRate;
-        let currentTime = startOffset + (Tone.context.now() - playStartTime) * playbackRate;
-
-        // Handle loop
-        if (currentTime >= player.buffer.duration) {
-            startOffset = 0;
-            playStartTime = Tone.context.now();
-            currentTime = 0;
-            player.stop();
-            player.start(0, 0);
+        if (!isPlaying || !player || !audioBuffer) {
+            cancelAnimationFrame(animationFrameId);
+            return;
         }
-
-        progressBar.value = (currentTime / player.buffer.duration) * 100;
+        const playbackRate = player.playbackRate;
+        const elapsed = (Tone.context.now() - playStartTime) * playbackRate;
+        let currentTime = (startOffset + elapsed) % audioBuffer.duration;
+        progressBar.value = (currentTime / audioBuffer.duration) * 100;
         updateTimeDisplay(currentTime);
         animationFrameId = requestAnimationFrame(updateProgress);
     }
     
-    function formatTime(seconds) {
-        const min = Math.floor(seconds / 60);
-        const sec = Math.floor(seconds % 60);
-        return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
-    }
+    async function handleFileSelect(event) {
+        const file = (event.target.files || event.dataTransfer.files)[0];
+        if (!file) return;
+        
+        await resetApp(false);
+        originalFileName = file.name;
+        fileNameDisplay.textContent = originalFileName;
 
-    function updateTimeDisplay(currentTime = startOffset) {
-         if (!player || !player.loaded) return;
-         timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(player.buffer.duration)}`;
-    }
-    
-    function updatePlayPauseIcon(playing) {
-        playPauseIcon.innerHTML = `<path d="${playing ? ICONS.PAUSE : ICONS.PLAY}"></path>`;
-        playPauseBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+        try {
+            await Tone.start();
+            const url = URL.createObjectURL(file);
+            audioBuffer = await Tone.Buffer.load(url);
+            URL.revokeObjectURL(url);
+            reverb = new Tone.Reverb({ decay: 4, preDelay: 0.01, wet: parseFloat(reverbSlider.value) }).toDestination();
+            updateUIForFileLoaded();
+        } catch (e) {
+            alert('Error: Could not decode audio file.');
+            console.error(e);
+            await resetApp(true);
+        }
     }
 
     function updateUIForFileLoaded() {
-        playerWrapper.classList.remove('hidden');
-        uploader.classList.add('fading-out');
-        setTimeout(() => uploader.classList.add('hidden'), 310);
-        playerWrapper.classList.remove('fading-out');
+        studioContainer.classList.add('is-loaded');
         downloadBtn.disabled = false;
+        startOffset = 0;
         progressBar.value = 0;
-        updateTimeDisplay(0);
+        updateTimeDisplay();
+        handleReverbChange(); 
+        handleSpeedChange();
     }
 
-    async function resetApp() {
+    async function resetApp(revertUI = true) {
         if (isPlaying) pause();
         if (player) player.dispose();
         if (reverb) reverb.dispose();
-
-        player = null; reverb = null;
+        
+        player = reverb = audioBuffer = null;
         isPlaying = false;
         startOffset = 0;
-        playStartTime = 0;
         cancelAnimationFrame(animationFrameId);
         
-        uploader.classList.remove('hidden');
-        playerWrapper.classList.add('fading-out');
-        setTimeout(() => playerWrapper.classList.add('hidden'), 310);
-        uploader.classList.remove('fading-out');
+        if (revertUI) {
+            studioContainer.classList.remove('is-loaded');
+        }
         
         downloadBtn.disabled = true;
         fileInput.value = '';
-        statusDisplay.textContent = '';
+        updateTimeDisplay();
         progressBar.value = 0;
-        timeDisplay.textContent = '00:00 / 00:00';
     }
 
     async function handleDownload() {
-        if (!player || !player.loaded) return;
-        statusDisplay.textContent = 'Processing... this may take a moment.';
-        downloadBtn.disabled = true;
-        removeBtn.disabled = true;
+        if (!audioBuffer || downloadBtn.classList.contains('onclic')) return;
+        downloadBtn.disabled = true; removeBtn.disabled = true;
+        downloadBtn.classList.add('onclic'); downloadBtn.setAttribute('data-text', '');
 
         try {
-            const duration = player.buffer.duration / player.playbackRate;
-            const renderedBuffer = await Tone.Offline(async (offlineContext) => {
-                const offlinePlayer = new Tone.Player(player.buffer);
-                const offlineReverb = new Tone.Reverb({
-                    decay: 4, preDelay: 0.01,
-                    wet: parseFloat(reverbSlider.value),
-                }).toDestination();
-                
-                offlinePlayer.playbackRate = player.playbackRate;
-                offlinePlayer.connect(offlineReverb);
+            const playbackRate = parseFloat(speedSlider.value);
+            const offlineRenderDuration = audioBuffer.duration / playbackRate;
+            const renderedBuffer = await Tone.Offline(async () => {
+                const offlineReverb = new Tone.Reverb({ decay: 4, preDelay: 0.01, wet: parseFloat(reverbSlider.value) }).toDestination();
+                const offlinePlayer = new Tone.Player(audioBuffer).connect(offlineReverb);
+                offlinePlayer.playbackRate = playbackRate;
                 offlinePlayer.start(0);
-            }, duration);
+            }, offlineRenderDuration);
             
-            const wavBlob = bufferToWav(renderedBuffer.get());
-            const url = URL.createObjectURL(wavBlob);
+            // --- Use the Web Worker for encoding ---
+            mp3EncoderWorker.postMessage({
+                audioData: {
+                    left: renderedBuffer.getChannelData(0),
+                    right: renderedBuffer.numberOfChannels > 1 ? renderedBuffer.getChannelData(1) : null
+                },
+                config: {
+                    channels: renderedBuffer.numberOfChannels,
+                    sampleRate: renderedBuffer.sampleRate,
+                    bitrate: 128
+                }
+            });
 
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            const cleanName = originalFileName.substring(0, originalFileName.lastIndexOf('.')) || originalFileName;
-            a.download = `${cleanName}-reverb.wav`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            a.remove();
-            statusDisplay.textContent = 'Download ready!';
-            setTimeout(() => statusDisplay.textContent = 'Ready.', 3000);
+            mp3EncoderWorker.onmessage = (e) => {
+                const mp3Blob = e.data;
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(mp3Blob);
+                const cleanName = originalFileName.substring(0, originalFileName.lastIndexOf('.')) || originalFileName;
+                a.download = `${cleanName}-slwd-reverb.mp3`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+                
+                downloadBtn.classList.remove('onclic');
+                downloadBtn.classList.add('validate');
+                setTimeout(() => {
+                    downloadBtn.classList.remove('validate');
+                    downloadBtn.setAttribute('data-text', 'Download MP3');
+                    downloadBtn.disabled = false;
+                    removeBtn.disabled = false;
+                }, 2500);
+            };
+
+            mp3EncoderWorker.onerror = (err) => {
+                throw new Error(err.message);
+            };
+
         } catch (e) {
-            statusDisplay.textContent = 'Error during processing.';
-            console.error('Offline rendering failed:', e);
-        } finally {
-            downloadBtn.disabled = false;
-            removeBtn.disabled = false;
+            alert('Error during processing. Check the console for details.');
+            console.error('Offline rendering or encoding failed:', e);
+            downloadBtn.classList.remove('onclic');
+            downloadBtn.setAttribute('data-text', 'Failed');
+            setTimeout(() => {
+                 downloadBtn.setAttribute('data-text', 'Download MP3');
+                 downloadBtn.disabled = false;
+                 removeBtn.disabled = false;
+            }, 3000);
         }
     }
+
+    // --- Initial Setup & Event Listeners ---
+    updatePlayPauseIcon(false);
+    handleReverbChange(); 
+    handleSpeedChange(); 
     
-    function bufferToWav(buffer) {
-        const numOfChan = buffer.numberOfChannels, length = buffer.length * numOfChan * 2 + 44;
-        const bufferOut = new ArrayBuffer(length), view = new DataView(bufferOut);
-        const channels = []; let i, sample, offset = 0, pos = 0;
-        setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
-        setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
-        setUint32(buffer.sampleRate); setUint32(buffer.sampleRate * 2 * numOfChan);
-        setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164);
-        setUint32(length - pos - 4);
-        for (i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
-        while (pos < length) {
-            for (i = 0; i < numOfChan; i++) {
-                sample = Math.max(-1, Math.min(1, channels[i][offset]));
-                sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
-                view.setInt16(pos, sample, true); pos += 2;
-            }
-            if(offset < buffer.length) offset++; else pos = length;
-        }
-        function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
-        function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
-        return new Blob([bufferOut], { type: "audio/wav" });
-    }
+    fileInput.addEventListener('change', handleFileSelect);
+    studioContainer.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
+    studioContainer.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); });
+    studioContainer.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); handleFileSelect(e); });
+
+    playPauseBtn.addEventListener('click', togglePlayPause);
+    reverbSlider.addEventListener('input', handleReverbChange);
+    speedSlider.addEventListener('input', handleSpeedChange);
+    progressBar.addEventListener('input', handleSeek);
+    removeBtn.addEventListener('click', () => resetApp(true));
+    downloadBtn.addEventListener('click', handleDownload);
 });
 </script>
 </body>
