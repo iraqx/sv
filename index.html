@@ -3,22 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro Solwed Reverb - Performance Edition</title>
+    <title>Pro Solwed Reverb - Dark Glass Edition</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tone.js for Audio Processing -->
     <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
-    <!-- lame.min.js is now loaded inside the Web Worker -->
+    <!-- jsmediatags for extracting Audio Thumbnails -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+
     <style>
         :root {
-            --background-color: #000000;
-            --primary-text-color: #e0e0e0;
-            --secondary-text-color: #7d7d7d;
-            --border-color: #2a2a2a;
-            --accent-color: #00A9FF;
+            --accent-color: #ffffff;
             --success-color: #1ED760;
-            --font-family: 'JetBrains Mono', monospace;
+            --font-family: 'Inter', sans-serif;
+            --text-main: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.5);
+            --glass-bg: rgba(0, 0, 0, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.1);
         }
+        
         * {
             box-sizing: border-box;
             margin: 0;
@@ -26,35 +31,51 @@
             outline: none;
             -webkit-tap-highlight-color: transparent;
         }
-        html { font-size: 16px; }
+
         html, body {
-            height: 100%;
-            /* --- FIX: Disable Pull-to-Refresh --- */
+            min-height: 100%;
             overscroll-behavior-y: contain;
         }
+
         body {
-            background-color: var(--background-color);
-            color: var(--primary-text-color);
+            /* Darker Gradient Background */
+            background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #000000);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: var(--text-main);
             font-family: var(--font-family);
             display: flex;
             justify-content: center;
-            align-items: center;
-            padding: 2rem;
+            align-items: flex-start;
+            padding: 0.5rem 1rem;
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
 
-        .studio-container {
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .app-wrapper {
             width: 100%;
-            max-width: 800px;
-            background-color: transparent;
-            border: 2px dashed var(--border-color);
-            border-radius: 16px;
-            overflow: hidden;
-            position: relative;
-            transition: border-color 0.6s ease-in-out;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
         }
 
+        .glass-panel {
+            background: var(--glass-bg);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            transition: all 0.4s ease-in-out;
+        }
+
+        /* Uploader Box */
         .file-drop-zone {
             display: flex;
             flex-direction: column;
@@ -65,408 +86,453 @@
             padding: 4rem 2rem;
             opacity: 1;
             max-height: 500px;
-            transition: max-height 0.6s ease-in-out, opacity 0.4s ease-in-out, padding 0.6s ease-in-out;
+            overflow: hidden;
         }
+        .file-drop-zone:hover { background: rgba(255, 255, 255, 0.05); }
         #file-input { display: none; }
-        .uploader-icon { margin-bottom: 1.5rem; color: var(--secondary-text-color); }
-        .uploader-text { font-size: 1.25rem; font-weight: 500; }
-        .uploader-subtext { font-size: 0.9rem; color: var(--secondary-text-color); margin-top: 0.5rem; }
+        .uploader-icon { margin-bottom: 1rem; color: var(--text-muted); }
+        .uploader-text { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem;}
+        .uploader-subtext { font-size: 0.85rem; color: var(--text-muted); }
+
+        .is-loaded .file-drop-zone {
+            max-height: 0; padding: 0; opacity: 0; margin: 0; border: none; pointer-events: none;
+        }
 
         .controls-wrapper {
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
             opacity: 0;
-            max-height: 0;
-            visibility: hidden;
-            padding: 0 2.5rem;
             transform: translateY(15px);
-            transition: max-height 0.6s ease-in-out, opacity 0.4s ease-in-out, padding 0.6s ease-in-out, transform 0.5s ease-in-out, visibility 0s 0.6s;
+            animation: slideUpFade 0.6s forwards;
+        }
+        .is-loaded .controls-wrapper { display: flex; }
+
+        @keyframes slideUpFade {
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .studio-container.is-loaded .file-drop-zone {
-            max-height: 0;
-            opacity: 0;
-            padding-top: 0;
-            padding-bottom: 0;
-            visibility: hidden;
-        }
-        .studio-container.is-loaded .controls-wrapper {
-            max-height: 1000px;
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-            padding: 2.5rem;
+        /* Player Panel */
+        .player-panel { padding: 1.5rem; }
+        
+        .track-header {
+            display: flex;
+            flex-direction: column; /* Stacked for bigger thumbnail */
+            align-items: center;
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
         }
 
-        .control-group { margin-bottom: 2.5rem; }
-        .control-group:last-child { margin-bottom: 0; }
+        /* Bigger Thumbnail */
+        .thumbnail-container {
+            width: 160px;
+            height: 160px;
+            border-radius: 16px;
+            flex-shrink: 0;
+            position: relative;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+        .default-art { color: rgba(255, 255, 255, 0.2); display: flex; z-index: 1; }
+        .track-thumbnail {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: 2;
+            display: none;
+        }
 
-        .file-info-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
-        .file-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 1.1rem; padding-right: 1rem; }
-        .remove-btn { background: none; border: none; cursor: pointer; color: var(--secondary-text-color); padding: 0.5rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: color 0.2s, background-color 0.2s; }
-        .remove-btn:hover { color: var(--primary-text-color); background-color: #333; }
+        .track-info {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .file-name {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 1rem; /* Smaller title as requested */
+            font-weight: 500;
+            color: var(--text-main);
+            flex-grow: 1;
+        }
+
+        .remove-btn {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; color: white; padding: 0.5rem; display: flex; border-radius: 50%; transition: 0.2s;
+        }
+        .remove-btn:hover { background: rgba(255,50,50,0.2); }
 
         .progress-container { width: 100%; margin-bottom: 1.5rem; }
-        .play-pause-wrapper { display: flex; justify-content: center; width: 100%; }
-        .play-pause-btn { background-color: var(--accent-color); border: none; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: background-color 0.2s, transform 0.2s ease-out; box-shadow: 0 4px 15px rgba(0, 169, 255, 0.3); }
-        .play-pause-btn:hover { transform: scale(1.08); }
-        .play-pause-icon { width: 30px; height: 30px; }
-
-        .time-display { font-size: 0.85rem; color: var(--secondary-text-color); text-align: right; margin-top: 0.5rem; }
-
-        .slider-label { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; font-size: 1rem; font-weight: 500; }
-        .value-display { font-size: 0.9rem; color: var(--secondary-text-color); }
-
-        input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: var(--border-color); outline: none; border-radius: 2px; margin: 0.5rem 0; cursor: pointer; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; background: var(--primary-text-color); border-radius: 50%; cursor: pointer; transition: background-color 0.2s, transform 0.2s; }
-        input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; background: var(--primary-text-color); border-radius: 50%; cursor: pointer; border: none; transition: background-color 0.2s, transform 0.2s; }
-        input[type="range"]:hover::-webkit-slider-thumb { background-color: var(--accent-color); transform: scale(1.2); }
-        input[type="range"]:hover::-moz-range-thumb { background-color: var(--accent-color); transform: scale(1.2); }
-
-        .download-wrapper { text-align: center; padding-top: 1rem; }
-        .download-btn { height: 48px; text-align: center; width: 100%; max-width: 250px; border-radius: 48px; background: transparent; border: 2px solid var(--success-color); color: var(--success-color); letter-spacing: 1px; font-size: 1rem; font-weight: 500; font-family: var(--font-family); cursor: pointer; transition: all 0.3s ease; position: relative; }
-        .download-btn:hover:not(:disabled) { color: #000; background: var(--success-color); }
-        .download-btn:disabled:not(.onclic):not(.validate) { color: #444; border-color: #444; cursor: not-allowed; }
-        .download-btn::after { content: attr(data-text); }
-        .download-btn.onclic { width: 48px; border-color: var(--border-color); border-width: 3px; font-size: 0; border-left-color: var(--success-color); animation: rotating 1.5s linear infinite; }
-        .download-btn.onclic::after { content: ""; }
-        .download-btn.onclic:hover { background: transparent; }
-        .download-btn.validate { font-size: 20px; color: #000; background: var(--success-color); border-color: var(--success-color); }
-        .download--btn.validate::after { content: "✓"; }
+        .time-display { font-size: 0.75rem; color: var(--text-muted); text-align: right; margin-top: 0.5rem; font-variant-numeric: tabular-nums; }
         
-        @keyframes rotating { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .play-pause-wrapper { display: flex; justify-content: center; }
+        .play-pause-btn { background: #fff; border: none; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #000; transition: 0.2s; }
+        .play-pause-btn:hover { transform: scale(1.05); }
+        .play-pause-icon { width: 24px; height: 24px; margin-left: 2px; }
+        .play-pause-btn.playing .play-pause-icon { margin-left: 0; }
+
+        /* Effects Panel */
+        .effects-panel { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+        .slider-group { width: 100%; }
+        .slider-label { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); }
+        .value-display { font-size: 0.8rem; color: #fff; background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 10px; }
+
+        input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: rgba(255,255,255,0.1); outline: none; border-radius: 10px; cursor: pointer; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; background: #fff; border-radius: 50%; cursor: pointer; border: 2px solid #000; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: #fff; border-radius: 50%; cursor: pointer; border: 2px solid #000; }
+
+        /* Download Button Redesign */
+        .download-btn { 
+            width: 100%; 
+            padding: 1.1rem; 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            color: white; 
+            font-size: 1rem; 
+            font-weight: 600; 
+            cursor: pointer; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            transition: all 0.3s ease; 
+            position: relative;
+            overflow: hidden;
+        }
+        .download-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
+        .download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        /* Spinner for inside the button */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top: 2px solid #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 10px;
+        }
+
+        .download-btn.processing .spinner { display: block; }
+        .download-btn.done { background: var(--success-color); color: #000; border-color: var(--success-color); }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div class="studio-container" id="studio-container">
-        <label for="file-input" class="file-drop-zone">
+    <div class="app-wrapper" id="app-wrapper">
+        
+        <!-- Upload Card -->
+        <label for="file-input" class="glass-panel file-drop-zone" id="drop-zone">
             <div class="uploader-icon">
-                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
             </div>
-            <div class="uploader-text">Drop Audio File</div>
-            <div class="uploader-subtext">or click to browse</div>
+            <div class="uploader-text">Select Audio</div>
+            <div class="uploader-subtext">MP3, WAV, or FLAC</div>
         </label>
         <input type="file" id="file-input" accept="audio/*">
 
-        <div class="controls-wrapper">
-            <div class="control-group">
-                <div class="file-info-header">
-                    <span class="file-name"></span>
-                    <button class="remove-btn" aria-label="Remove file">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+        <!-- Controls Wrapper -->
+        <div class="controls-wrapper" id="controls">
+            
+            <!-- Player Card -->
+            <div class="glass-panel player-panel">
+                <div class="track-header">
+                    <div class="thumbnail-container">
+                        <div class="default-art">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle>
+                            </svg>
+                        </div>
+                        <img id="track-thumbnail" class="track-thumbnail" alt="Cover Art">
+                    </div>
+                    <div class="track-info">
+                        <span class="file-name" id="file-name"></span>
+                        <button class="remove-btn" id="remove-btn" aria-label="Remove">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="progress-container">
+                    <input type="range" id="progress-bar" min="0" max="100" value="0" step="0.1">
+                    <div class="time-display" id="time-display">00:00 / 00:00</div>
+                </div>
+                
+                <div class="play-pause-wrapper">
+                    <button class="play-pause-btn" id="play-pause-btn" aria-label="Play">
+                        <svg class="play-pause-icon" viewBox="0 0 32 32" fill="currentColor">
+                            <path id="play-icon-path" d="M10 8 L24 16 L10 24 Z"></path>
                         </svg>
                     </button>
                 </div>
-                <div class="progress-container">
-                    <input type="range" id="progress-bar" min="0" max="100" value="0">
-                    <div class="time-display">00:00 / 00:00</div>
+            </div>
+
+            <!-- Effects Card -->
+            <div class="glass-panel effects-panel">
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Bass Boost</span>
+                        <span class="value-display" id="bass-value">0 dB</span>
+                    </div>
+                    <!-- Bass step changed to 0.5 -->
+                    <input type="range" id="bass-slider" min="-5" max="5" step="0.5" value="0">
                 </div>
-                <div class="play-pause-wrapper">
-                    <button class="play-pause-btn" aria-label="Play">
-                        <svg class="play-pause-icon" viewBox="0 0 32 32" fill="currentColor"></svg>
-                    </button>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Reverb Mix</span>
+                        <span class="value-display" id="reverb-value">50%</span>
+                    </div>
+                    <input type="range" id="reverb-slider" min="0" max="1" step="0.05" value="0.5">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Playback Speed</span>
+                        <span class="value-display" id="speed-value">1.00x</span>
+                    </div>
+                    <input type="range" id="speed-slider" min="0.5" max="1.5" step="0.05" value="1">
                 </div>
             </div>
-            <div class="control-group">
-                <div class="slider-label">
-                    <span>Reverb</span>
-                    <span class="value-display" id="reverb-value"></span>
-                </div>
-                <input type="range" id="reverb-slider" min="0" max="1" step="0.05" value="0.5">
-            </div>
-            <div class="control-group">
-                <div class="slider-label">
-                    <span>Speed</span>
-                    <span class="value-display" id="speed-value"></span>
-                </div>
-                <input type="range" id="speed-slider" min="0.5" max="1.5" step="0.05" value="1">
-            </div>
-            <div class="control-group">
-                <div class="download-wrapper">
-                    <button class="download-btn" id="download-btn" data-text="Download MP3" disabled></button>
-                </div>
-            </div>
+
+            <!-- Download Button -->
+            <button class="glass-panel download-btn" id="download-btn">
+                <div class="spinner"></div>
+                <span id="btn-text">Download MP3</span>
+            </button>
         </div>
     </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM Elements ---
-    const studioContainer = document.getElementById('studio-container');
+    const appWrapper = document.getElementById('app-wrapper');
     const fileInput = document.getElementById('file-input');
-    const fileNameDisplay = document.querySelector('.file-name');
-    const timeDisplay = document.querySelector('.time-display');
+    const fileNameDisplay = document.getElementById('file-name');
+    const timeDisplay = document.getElementById('time-display');
     const progressBar = document.getElementById('progress-bar');
-    const playPauseBtn = document.querySelector('.play-pause-btn');
-    const playPauseIcon = document.querySelector('.play-pause-icon');
+    const playPauseBtn = document.getElementById('play-pause-btn');
+    const playIconPath = document.getElementById('play-icon-path');
     const reverbSlider = document.getElementById('reverb-slider');
     const reverbValueDisplay = document.getElementById('reverb-value');
     const speedSlider = document.getElementById('speed-slider');
     const speedValueDisplay = document.getElementById('speed-value');
-    const removeBtn = document.querySelector('.remove-btn');
+    const bassSlider = document.getElementById('bass-slider');
+    const bassValueDisplay = document.getElementById('bass-value');
+    const removeBtn = document.getElementById('remove-btn');
     const downloadBtn = document.getElementById('download-btn');
+    const btnText = document.getElementById('btn-text');
+    const trackThumbnail = document.getElementById('track-thumbnail');
     
-    // --- State & Constants ---
-    const ICONS = { PLAY: 'M10 8 L22 16 L10 24 Z', PAUSE: 'M9 8 H13 V24 H9 Z M19 8 H23 V24 H19 Z' };
-    let audioBuffer, player, reverb, isPlaying = false, startOffset = 0, playStartTime = 0, animationFrameId, originalFileName = '';
-    let mp3EncoderWorker;
+    const ICONS = { PLAY: 'M10 8 L24 16 L10 24 Z', PAUSE: 'M9 8 H13 V24 H9 Z M19 8 H23 V24 H19 Z' };
+    let audioBuffer = null, player = null, reverb = null, eq = null, isPlaying = false;
+    let startOffset = 0, playStartTime = 0, animationFrameId, originalFileName = '', currentThumbnailUrl = null;
 
-    // --- PERFORMANCE FIX: MP3 Encoding Web Worker ---
-    function setupEncoderWorker() {
-        const workerCode = `
-            self.importScripts('https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js');
-
-            function floatTo16BitPCM(input) {
-                const output = new Int16Array(input.length);
-                for (let i = 0; i < input.length; i++) {
-                    const s = Math.max(-1, Math.min(1, input[i]));
-                    output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                }
-                return output;
+    // --- MP3 Encoder Worker ---
+    const workerCode = `
+        self.importScripts('https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js');
+        function floatTo16BitPCM(input) {
+            const output = new Int16Array(input.length);
+            for (let i = 0; i < input.length; i++) {
+                const s = Math.max(-1, Math.min(1, input[i]));
+                output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
-
-            self.onmessage = function(e) {
-                const { audioData, config } = e.data;
-                const pcmLeft = floatTo16BitPCM(audioData.left);
-                const pcmRight = audioData.right ? floatTo16BitPCM(audioData.right) : pcmLeft;
-                
-                const encoder = new lamejs.Mp3Encoder(config.channels, config.sampleRate, config.bitrate);
-                const mp3Data = [];
-                const blockSize = 1152;
-
-                for (let i = 0; i < pcmLeft.length; i += blockSize) {
-                    const leftChunk = pcmLeft.subarray(i, i + blockSize);
-                    const rightChunk = pcmRight.subarray(i, i + blockSize);
-                    const mp3buf = encoder.encodeBuffer(leftChunk, rightChunk);
-                    if (mp3buf.length > 0) mp3Data.push(mp3buf);
-                }
-                const mp3buf = encoder.flush();
+            return output;
+        }
+        self.onmessage = function(e) {
+            const { audioData, config } = e.data;
+            const pcmLeft = floatTo16BitPCM(audioData.left);
+            const pcmRight = audioData.right ? floatTo16BitPCM(audioData.right) : pcmLeft;
+            const encoder = new lamejs.Mp3Encoder(config.channels, config.sampleRate, config.bitrate);
+            const mp3Data = [];
+            const blockSize = 1152;
+            for (let i = 0; i < pcmLeft.length; i += blockSize) {
+                const leftChunk = pcmLeft.subarray(i, i + blockSize);
+                const rightChunk = pcmRight.subarray(i, i + blockSize);
+                const mp3buf = encoder.encodeBuffer(leftChunk, rightChunk);
                 if (mp3buf.length > 0) mp3Data.push(mp3buf);
+            }
+            const mp3buf = encoder.flush();
+            if (mp3buf.length > 0) mp3Data.push(mp3buf);
+            self.postMessage(new Blob(mp3Data, { type: 'audio/mpeg' }));
+        };
+    `;
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    const mp3EncoderWorker = new Worker(URL.createObjectURL(blob));
 
-                self.postMessage(new Blob(mp3Data, { type: 'audio/mpeg' }));
-            };
-        `;
-        const blob = new Blob([workerCode], { type: 'application/javascript' });
-        mp3EncoderWorker = new Worker(URL.createObjectURL(blob));
-    }
-    setupEncoderWorker();
-    // --- End of Web Worker Setup ---
-
-    const formatTime = (seconds) => {
-        const min = Math.floor(seconds / 60);
-        const sec = Math.floor(seconds % 60);
-        return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
-    };
-
-    const updateTimeDisplay = (currentTime = 0) => {
-         const duration = audioBuffer ? audioBuffer.duration : 0;
-         timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
-    };
-    
-    const updatePlayPauseIcon = (playing) => {
-        playPauseIcon.innerHTML = `<path d="${playing ? ICONS.PAUSE : ICONS.PLAY}"></path>`;
-        playPauseBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
-    };
-
-    function createPlayer() {
-        if (player) { player.stop(); player.dispose(); }
-        player = new Tone.Player(audioBuffer).connect(reverb);
+    async function initAudioNodes() {
+        if (player) return;
+        await Tone.start();
+        reverb = new Tone.Reverb({ decay: 4, preDelay: 0.01, wet: parseFloat(reverbSlider.value) }).toDestination();
+        await reverb.ready;
+        eq = new Tone.EQ3({ low: parseFloat(bassSlider.value), mid: 0, high: 0 }).connect(reverb);
+        player = new Tone.Player().connect(eq);
         player.loop = true;
-        player.playbackRate = parseFloat(speedSlider.value);
+    }
+
+    function loadThumbnail(file) {
+        if (currentThumbnailUrl) URL.revokeObjectURL(currentThumbnailUrl);
+        trackThumbnail.style.display = 'none';
+        const jsmediatags = window.jsmediatags;
+        if (!jsmediatags) return;
+        jsmediatags.read(file, {
+            onSuccess: (tag) => {
+                const pic = tag.tags.picture;
+                if (pic) {
+                    const blob = new Blob([new Uint8Array(pic.data)], { type: pic.format });
+                    currentThumbnailUrl = URL.createObjectURL(blob);
+                    trackThumbnail.src = currentThumbnailUrl;
+                    trackThumbnail.style.display = 'block';
+                }
+            }
+        });
+    }
+
+    const formatTime = (s) => isNaN(s) ? "00:00" : `${Math.floor(s/60).toString().padStart(2,'0')}:${Math.floor(s%60).toString().padStart(2,'0')}`;
+
+    function updateProgress() {
+        if (!isPlaying || !player || !audioBuffer) return;
+        const elapsed = (Tone.context.now() - playStartTime) * player.playbackRate;
+        let currentTime = (startOffset + elapsed) % audioBuffer.duration;
+        progressBar.value = (currentTime / audioBuffer.duration) * 100;
+        timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(audioBuffer.duration)}`;
+        animationFrameId = requestAnimationFrame(updateProgress);
     }
 
     function play() {
         if (!audioBuffer || isPlaying) return;
-        createPlayer();
+        player.playbackRate = parseFloat(speedSlider.value);
         player.start(Tone.now(), startOffset);
         playStartTime = Tone.context.now();
         isPlaying = true;
-        updatePlayPauseIcon(true);
+        playIconPath.setAttribute('d', ICONS.PAUSE);
+        playPauseBtn.classList.add('playing');
         animationFrameId = requestAnimationFrame(updateProgress);
     }
 
     function pause() {
-        if (!isPlaying || !player) return;
+        if (!isPlaying) return;
         const elapsed = (Tone.context.now() - playStartTime) * player.playbackRate;
         startOffset = (startOffset + elapsed) % audioBuffer.duration;
         player.stop();
         isPlaying = false;
-        updatePlayPauseIcon(false);
+        playIconPath.setAttribute('d', ICONS.PLAY);
+        playPauseBtn.classList.remove('playing');
         cancelAnimationFrame(animationFrameId);
     }
-    
-    const togglePlayPause = () => { isPlaying ? pause() : play(); };
 
-    function handleReverbChange() {
-        const mix = parseFloat(reverbSlider.value);
-        reverbValueDisplay.textContent = `${Math.round(mix * 100)}%`;
-        if (reverb) reverb.wet.value = mix;
-    }
-
-    function handleSpeedChange() {
-        const speed = parseFloat(speedSlider.value);
-        speedValueDisplay.textContent = `${speed.toFixed(2)}x`;
-        if (player) player.playbackRate = speed;
-    }
-    
-    function handleSeek() {
-        if (!audioBuffer) return;
-        const wasPlaying = isPlaying;
-        if (wasPlaying) pause();
-        startOffset = (progressBar.value / 100) * audioBuffer.duration;
-        updateTimeDisplay(startOffset);
-        if (wasPlaying) play();
-    }
-
-    function updateProgress() {
-        if (!isPlaying || !player || !audioBuffer) {
-            cancelAnimationFrame(animationFrameId);
-            return;
-        }
-        const playbackRate = player.playbackRate;
-        const elapsed = (Tone.context.now() - playStartTime) * playbackRate;
-        let currentTime = (startOffset + elapsed) % audioBuffer.duration;
-        progressBar.value = (currentTime / audioBuffer.duration) * 100;
-        updateTimeDisplay(currentTime);
-        animationFrameId = requestAnimationFrame(updateProgress);
-    }
-    
     async function handleFileSelect(event) {
         const file = (event.target.files || event.dataTransfer.files)[0];
         if (!file) return;
-        
         await resetApp(false);
         originalFileName = file.name;
         fileNameDisplay.textContent = originalFileName;
-
+        loadThumbnail(file);
         try {
-            await Tone.start();
+            await initAudioNodes();
             const url = URL.createObjectURL(file);
             audioBuffer = await Tone.Buffer.load(url);
+            player.buffer = audioBuffer;
             URL.revokeObjectURL(url);
-            reverb = new Tone.Reverb({ decay: 4, preDelay: 0.01, wet: parseFloat(reverbSlider.value) }).toDestination();
-            updateUIForFileLoaded();
-        } catch (e) {
-            alert('Error: Could not decode audio file.');
-            console.error(e);
-            await resetApp(true);
-        }
-    }
-
-    function updateUIForFileLoaded() {
-        studioContainer.classList.add('is-loaded');
-        downloadBtn.disabled = false;
-        startOffset = 0;
-        progressBar.value = 0;
-        updateTimeDisplay();
-        handleReverbChange(); 
-        handleSpeedChange();
+            appWrapper.classList.add('is-loaded');
+            downloadBtn.disabled = false;
+            timeDisplay.textContent = `00:00 / ${formatTime(audioBuffer.duration)}`;
+        } catch (e) { alert('Error decoding file.'); await resetApp(true); }
     }
 
     async function resetApp(revertUI = true) {
-        if (isPlaying) pause();
-        if (player) player.dispose();
-        if (reverb) reverb.dispose();
-        
-        player = reverb = audioBuffer = null;
-        isPlaying = false;
-        startOffset = 0;
-        cancelAnimationFrame(animationFrameId);
-        
-        if (revertUI) {
-            studioContainer.classList.remove('is-loaded');
-        }
-        
+        pause(); startOffset = 0;
+        if (revertUI) appWrapper.classList.remove('is-loaded');
         downloadBtn.disabled = true;
-        fileInput.value = '';
-        updateTimeDisplay();
         progressBar.value = 0;
     }
 
     async function handleDownload() {
-        if (!audioBuffer || downloadBtn.classList.contains('onclic')) return;
-        downloadBtn.disabled = true; removeBtn.disabled = true;
-        downloadBtn.classList.add('onclic'); downloadBtn.setAttribute('data-text', '');
+        if (!audioBuffer || downloadBtn.classList.contains('processing')) return;
+        downloadBtn.disabled = true;
+        downloadBtn.classList.add('processing');
+        btnText.textContent = 'Processing...';
 
         try {
             const playbackRate = parseFloat(speedSlider.value);
-            const offlineRenderDuration = audioBuffer.duration / playbackRate;
             const renderedBuffer = await Tone.Offline(async () => {
-                const offlineReverb = new Tone.Reverb({ decay: 4, preDelay: 0.01, wet: parseFloat(reverbSlider.value) }).toDestination();
-                const offlinePlayer = new Tone.Player(audioBuffer).connect(offlineReverb);
-                offlinePlayer.playbackRate = playbackRate;
-                offlinePlayer.start(0);
-            }, offlineRenderDuration);
+                const offReverb = new Tone.Reverb({ decay: 4, preDelay: 0.01, wet: parseFloat(reverbSlider.value) }).toDestination();
+                await offReverb.ready; 
+                const offEq = new Tone.EQ3({ low: parseFloat(bassSlider.value), mid: 0, high: 0 }).connect(offReverb);
+                const offPlayer = new Tone.Player(audioBuffer).connect(offEq);
+                offPlayer.playbackRate = playbackRate;
+                offPlayer.start(0);
+            }, audioBuffer.duration / playbackRate);
             
-            // --- Use the Web Worker for encoding ---
             mp3EncoderWorker.postMessage({
-                audioData: {
-                    left: renderedBuffer.getChannelData(0),
-                    right: renderedBuffer.numberOfChannels > 1 ? renderedBuffer.getChannelData(1) : null
-                },
-                config: {
-                    channels: renderedBuffer.numberOfChannels,
-                    sampleRate: renderedBuffer.sampleRate,
-                    bitrate: 128
-                }
+                audioData: { left: renderedBuffer.getChannelData(0), right: renderedBuffer.numberOfChannels > 1 ? renderedBuffer.getChannelData(1) : null },
+                config: { channels: renderedBuffer.numberOfChannels, sampleRate: renderedBuffer.sampleRate, bitrate: 192 }
             });
 
             mp3EncoderWorker.onmessage = (e) => {
-                const mp3Blob = e.data;
                 const a = document.createElement('a');
-                a.href = URL.createObjectURL(mp3Blob);
-                const cleanName = originalFileName.substring(0, originalFileName.lastIndexOf('.')) || originalFileName;
-                a.download = `${cleanName}-slwd-reverb.mp3`;
-                document.body.appendChild(a);
+                a.href = URL.createObjectURL(e.data);
+                a.download = `${originalFileName.split('.')[0]} (Slowed + Reverb).mp3`;
                 a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(a.href);
                 
-                downloadBtn.classList.remove('onclic');
-                downloadBtn.classList.add('validate');
+                downloadBtn.classList.remove('processing');
+                downloadBtn.classList.add('done');
+                btnText.textContent = 'Done!';
                 setTimeout(() => {
-                    downloadBtn.classList.remove('validate');
-                    downloadBtn.setAttribute('data-text', 'Download MP3');
+                    downloadBtn.classList.remove('done');
+                    btnText.textContent = 'Download MP3';
                     downloadBtn.disabled = false;
-                    removeBtn.disabled = false;
-                }, 2500);
+                }, 2000);
             };
-
-            mp3EncoderWorker.onerror = (err) => {
-                throw new Error(err.message);
-            };
-
         } catch (e) {
-            alert('Error during processing. Check the console for details.');
-            console.error('Offline rendering or encoding failed:', e);
-            downloadBtn.classList.remove('onclic');
-            downloadBtn.setAttribute('data-text', 'Failed');
-            setTimeout(() => {
-                 downloadBtn.setAttribute('data-text', 'Download MP3');
-                 downloadBtn.disabled = false;
-                 removeBtn.disabled = false;
-            }, 3000);
+            btnText.textContent = 'Error';
+            setTimeout(() => { downloadBtn.classList.remove('processing'); btnText.textContent = 'Download MP3'; downloadBtn.disabled = false; }, 2000);
         }
     }
 
-    // --- Initial Setup & Event Listeners ---
-    updatePlayPauseIcon(false);
-    handleReverbChange(); 
-    handleSpeedChange(); 
-    
+    playPauseBtn.addEventListener('click', () => isPlaying ? pause() : play());
+    reverbSlider.addEventListener('input', () => { 
+        reverbValueDisplay.textContent = `${Math.round(reverbSlider.value * 100)}%`;
+        if (reverb) reverb.wet.value = reverbSlider.value;
+    });
+    bassSlider.addEventListener('input', () => {
+        bassValueDisplay.textContent = `${bassSlider.value > 0 ? '+' : ''}${bassSlider.value} dB`;
+        if (eq) eq.low.value = bassSlider.value;
+    });
+    speedSlider.addEventListener('input', () => {
+        speedValueDisplay.textContent = `${parseFloat(speedSlider.value).toFixed(2)}x`;
+        if (player) player.playbackRate = speedSlider.value;
+    });
+    progressBar.addEventListener('input', () => {
+        if (!audioBuffer) return;
+        const wasPlaying = isPlaying;
+        if (wasPlaying) pause();
+        startOffset = (progressBar.value / 100) * audioBuffer.duration;
+        timeDisplay.textContent = `${formatTime(startOffset)} / ${formatTime(audioBuffer.duration)}`;
+        if (wasPlaying) play();
+    });
     fileInput.addEventListener('change', handleFileSelect);
-    studioContainer.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
-    studioContainer.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); });
-    studioContainer.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); handleFileSelect(e); });
-
-    playPauseBtn.addEventListener('click', togglePlayPause);
-    reverbSlider.addEventListener('input', handleReverbChange);
-    speedSlider.addEventListener('input', handleSpeedChange);
-    progressBar.addEventListener('input', handleSeek);
     removeBtn.addEventListener('click', () => resetApp(true));
     downloadBtn.addEventListener('click', handleDownload);
+    
+    const dropZone = document.getElementById('drop-zone');
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.background = 'rgba(255,255,255,0.05)'; });
+    dropZone.addEventListener('dragleave', () => dropZone.style.background = '');
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.style.background = ''; handleFileSelect(e); });
 });
 </script>
 </body>
